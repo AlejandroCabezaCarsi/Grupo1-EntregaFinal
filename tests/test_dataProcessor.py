@@ -5,8 +5,8 @@ import tempfile
 import pytest
 from aiLibrary.dataProcessor import DataProcessor
 
+# Test para verificar que el método clean_data elimina filas con valores faltantes.
 def test_clean_data():
-    # Creamos un DataFrame con algunos valores faltantes.
     df = pd.DataFrame({
         'A': [1, 2, None, 4],
         'B': [None, 2, 3, 4],
@@ -20,8 +20,8 @@ def test_clean_data():
     # Dado que solo la segunda y cuarta fila están completas, se esperan 2 filas.
     assert len(cleaned_df) == 2
 
+# Test para verificar que transform_categorical aplica correctamente el one-hot encoding.
 def test_transform_categorical():
-    # Creamos un DataFrame con las columnas categóricas esperadas.
     df = pd.DataFrame({
         'cp': [0, 1, 2],
         'restecg': [0, 1, 2],
@@ -36,8 +36,8 @@ def test_transform_categorical():
     for col in ['cp', 'restecg', 'ca', 'thal']:
         assert col not in transformed_df.columns
 
+# Test para verificar que scale_data escala las columnas numéricas entre 0 y 1 usando MinMaxScaler.
 def test_scale_data():
-    # Creamos un DataFrame simple con columnas numéricas.
     df = pd.DataFrame({
         'age': [50, 60, 70],
         'trestbps': [120, 140, 160],
@@ -51,8 +51,8 @@ def test_scale_data():
         assert scaled_df[col].min() == 0.0
         assert scaled_df[col].max() == 1.0
 
+# Test para verificar que split_data divide correctamente el DataFrame en conjuntos de entrenamiento y prueba.
 def test_split_data():
-    # Creamos un DataFrame simple.
     df = pd.DataFrame({
         'age': [50, 60, 70, 80],
         'trestbps': [120, 140, 160, 180],

@@ -1,113 +1,132 @@
 import os
 import tempfile
+import pytest
 import pandas as pd
 import numpy as np
-import pytest
 import joblib
+from sklearn.metrics import accuracy_score
+from sklearn.preprocessing import StandardScaler
 
 from aiLibrary.dataProcessor import DataProcessor
 from aiLibrary.modelManager import ModelManager
 from aiLibrary.predictionEngine import PredictionEngine
 
-def test_full_workflow_integration():
-    """
-    Test de integración que simula el flujo completo:
-    - Cargar y preprocesar un dataset simulado.
-    - Dividir en conjuntos de entrenamiento y prueba.
-    - Entrenar y evaluar el modelo.
-    - Guardar y cargar el modelo.
-    - Realizar predicciones y verificar la consistencia de la salida.
-    """
-    # Crear un dataset simulado (similar a heart.csv pero reducido)
+# Test para verificar que tras entrenar el modelo se creen atributos necesarios
+def test_train_model_attributes():
     data = pd.DataFrame({
-        'age': [52, 53, 70, 61, 62, 58],
-        'sex': [1, 1, 1, 1, 0, 0],
-        'cp': [0, 0, 0, 0, 0, 0],
-        'trestbps': [125, 140, 145, 148, 138, 100],
-        'chol': [212, 203, 174, 203, 294, 248],
-        'fbs': [0, 1, 0, 0, 1, 0],
-        'restecg': [1, 0, 1, 1, 1, 0],
-        'thalach': [168, 155, 125, 161, 106, 122],
-        'exang': [0, 1, 1, 0, 0, 0],
-        'oldpeak': [1, 3.1, 2.6, 0, 1.9, 1],
-        'slope': [2, 0, 0, 2, 1, 1],
-        'ca': [2, 0, 0, 1, 3, 0],
-        'thal': [3, 3, 3, 3, 2, 2],
-        'target': [0, 0, 0, 0, 0, 1]  # datos de ejemplo (pueden ser ajustados)
+        'age': [50, 60, 70, 80],
+        'sex': [1, 1, 0, 0],
+        'cp': [0, 1, 0, 1],
+        'trestbps': [120, 140, 150, 160],
+        'chol': [200, 220, 240, 260],
+        'fbs': [0, 1, 0, 1],
+        'restecg': [0, 1, 0, 1],
+        'thalach': [150, 160, 170, 180],
+        'exang': [0, 1, 0, 1],
+        'oldpeak': [1, 2, 3, 4],
+        'slope': [1, 2, 1, 2],
+        'ca': [0, 1, 0, 1],
+        'thal': [1, 2, 1, 2],
+        'target': [0, 1, 0, 1]
     })
-
-    # Preprocesamiento
     dp = DataProcessor(scaling_method='minmax')
     data_clean = dp.clean_data(data)
     data_transformed = dp.transform_categorical(data_clean)
     data_scaled = dp.scale_data(data_transformed, target_column='target')
     X_train, X_test, y_train, y_test = dp.split_data(data_scaled, target='target', test_size=0.5, random_state=42)
-
-    # Entrenamiento y evaluación del modelo
-    mm = ModelManager(model_params={'max_iter': 100})
-    model = mm.train_model(X_train, y_train)
-    eval_dict = mm.evaluate_model(X_test, y_test)
-    cm = eval_dict.get("confusion_matrix")
-    # Verificamos que la matriz de confusión tenga la forma (2, 2)
-    assert cm.shape == (2, 2)
-
-    # Guardar y cargar el modelo en un directorio temporal
-    with tempfile.TemporaryDirectory() as tmpdirname:
-        model_filename = "temp_model.pkl"
-        filepath = os.path.join(tmpdirname, model_filename)
-        joblib.dump(model, filepath)
-        loaded_model = joblib.load(filepath)
-        
-        # Verificar que el modelo cargado es del mismo tipo
-        assert isinstance(loaded_model, type(model))
-        
-        # Predicción con el modelo cargado
-        pe = PredictionEngine(model=loaded_model, scaler=dp.scaler, target_column='target')
-        predictions = pe.evaluate_new_dataframe(data_scaled)
-        # Verificamos que el número de predicciones coincide con el número de filas del dataset
-        assert len(predictions) == len(data_scaled)
-
-def test_error_on_empty_dataframe():
-    """
-    Verifica que se lance una excepción o se gestione correctamente
-    el caso en el que se suministra un DataFrame vacío al preprocesamiento.
-    """
-    dp = DataProcessor()
-    empty_df = pd.DataFrame()
     
-    # Dependiendo de la implementación, split_data sobre un DataFrame vacío debería lanzar un error.
-    with pytest.raises(KeyError):
-        dp.split_data(empty_df, target='target')
+    mm = ModelManager(model_params={'max_iter': 100})
+    mm.train_model(X_train, y_train)
+    
+    # Verifica que se haya creado el atributo "classes_" y que contenga ambas clases
+    assert hasattr(mm.model, 'classes_'), "El modelo no tiene el atributo 'classes_' después del entrenamiento."
+    assert set(mm.model.classes_) == {0, 1}, "El atributo 'classes_' no contiene las clases esperadas."
 
-def test_save_model_without_training(tmp_path):
-    """
-    Verifica que se genere un error si se intenta guardar el modelo sin haberlo entrenado.
-    Para esto, se crea una instancia de ModelManager sin llamar a train_model.
-    """
-    mm = ModelManager()
-    # Si el modelo no está entrenado, podríamos esperar que la función save_model lance un error.
-    # En la implementación actual, save_model depende de que mm.model haya sido ajustado.
-    with pytest.raises(Exception):
-        # Intentamos guardar el modelo sin entrenamiento.
-        mm.save_model("untrained_model.pkl")
-
-def test_prediction_consistency_after_reload():
-    """
-    Verifica que las predicciones sean consistentes antes y después de guardar y recargar el modelo.
-    """
-    # Crear un pequeño dataset
+# Test para verificar la exactitud del modelo en un dataset sencillo y separable
+def test_model_accuracy_on_balanced_data():
     X = pd.DataFrame({
-        'feature1': [0.2, 0.4, 0.6, 0.8],
+        'feature1': [1, 2, 9, 10],
+        'feature2': [1, 2, 9, 10]
+    })
+    y = [0, 0, 1, 1]
+    
+    mm = ModelManager(model_params={'max_iter': 100})
+    mm.train_model(X, y)
+    y_pred = mm.model.predict(X)
+    acc = accuracy_score(y, y_pred)
+    
+    # Se espera que la exactitud sea perfecta (1.0) en este caso
+    assert acc == 1.0, "La exactitud del modelo no es 1.0 para un dataset claramente separable."
+
+# Test para verificar el formato de salida del PredictionEngine
+def test_prediction_engine_output_format():
+    X = pd.DataFrame({
+        'feature1': [1, 2, 3, 4],
         'feature2': [1, 2, 3, 4]
     })
     y = [0, 0, 1, 1]
     
-    # Entrenar el modelo
+    mm = ModelManager(model_params={'max_iter': 100})
+    mm.train_model(X, y)
+    
+    # No se requiere escalado, por lo que pasamos scaler=None
+    pe = PredictionEngine(model=mm.model, scaler=None, target_column=None)
+    preds = pe.evaluate_new_dataframe(X)
+    
+    # Verificamos que la salida sea un array de NumPy y tenga la misma cantidad de elementos que X
+    assert isinstance(preds, np.ndarray), "La salida de PredictionEngine no es un array de NumPy."
+    assert preds.shape[0] == X.shape[0], "El número de predicciones no coincide con el número de muestras."
+
+# Test para comparar los resultados al usar StandardScaler vs MinMaxScaler
+def test_standard_scaler_vs_minmax_scaler():
+    data = pd.DataFrame({
+        'num1': [10, 20, 30, 40],
+        'target': [0, 1, 0, 1]
+    })
+    
+    dp_minmax = DataProcessor(scaling_method='minmax')
+    scaled_minmax = dp_minmax.scale_data(data.copy(), target_column='target')
+    
+    dp_standard = DataProcessor(scaling_method='standard')
+    scaled_standard = dp_standard.scale_data(data.copy(), target_column='target')
+    
+    # Se espera que los valores escalados sean diferentes entre ambos métodos
+    assert not np.allclose(scaled_minmax['num1'], scaled_standard['num1']), \
+        "Los resultados del escalado con MinMaxScaler y StandardScaler son idénticos, lo cual no debería suceder."
+
+# Test para verificar la consistencia del one-hot encoding
+def test_transform_categorical_consistency():
+    df = pd.DataFrame({
+        'cp': [0, 1, 0, 1],
+        'restecg': [0, 0, 1, 1],
+        'ca': [0, 1, 0, 1],
+        'thal': [3, 2, 3, 2],
+        'target': [0, 1, 0, 1]
+    })
+    dp = DataProcessor()
+    transformed1 = dp.transform_categorical(df.copy())
+    transformed2 = dp.transform_categorical(df.copy())
+    pd.testing.assert_frame_equal(transformed1, transformed2)
+
+# Test para verificar que se lance un error al usar un método de escalado inválido
+def test_error_on_invalid_scaling_method():
+    # Si se pasa un método de escalado inválido, se espera que el DataProcessor lo maneje.
+    dp = DataProcessor(scaling_method='invalid_method')
+    from sklearn.preprocessing import StandardScaler
+    assert isinstance(dp.scaler, StandardScaler), \
+        "El DataProcessor no ha utilizado StandardScaler como valor por defecto para un método de escalado inválido."
+
+# Test para verificar la consistencia de las predicciones antes y después de guardar y recargar el modelo
+def test_prediction_consistency_after_reload():
+    X = pd.DataFrame({
+        'feature': [0.2, 0.4, 0.6, 0.8]
+    })
+    y = [0, 0, 1, 1]
+    
     mm = ModelManager(model_params={'max_iter': 100})
     mm.train_model(X, y)
     preds_before = mm.model.predict(X)
     
-    # Guardar el modelo en un archivo temporal
     with tempfile.TemporaryDirectory() as tmpdirname:
         model_filename = "consistency_model.pkl"
         filepath = os.path.join(tmpdirname, model_filename)

@@ -1,12 +1,12 @@
 import os
 import pandas as pd
-import numpy as np
 import pytest
 from aiLibrary.modelManager import ModelManager
 from sklearn.linear_model import LogisticRegression
+import joblib
 
+# Test para verificar que el modelo se entrena y se evalúa correctamente.
 def test_train_and_evaluate_model():
-    # Creamos un conjunto de datos sencillo.
     X_train = pd.DataFrame({
         'feature1': [0.1, 0.2, 0.3, 0.4],
         'feature2': [1, 2, 3, 4]
@@ -18,38 +18,47 @@ def test_train_and_evaluate_model():
     })
     y_test = [0, 1]
     
+    # Inicializamos ModelManager con parámetros para LogisticRegression.
     mm = ModelManager(model_params={'max_iter': 200})
+    # Entrenamos el modelo con el conjunto de entrenamiento.
     mm.train_model(X_train, y_train)
     
+    # Evaluamos el modelo sobre el conjunto de prueba y obtenemos la matriz de confusión.
     evaluation = mm.evaluate_model(X_test, y_test)
     cm = evaluation.get("confusion_matrix")
     
-    # Dado que es un problema binario, la matriz de confusión debe tener forma (2, 2).
+    # Comprobamos que la matriz de confusión tiene forma (2, 2) (para un problema binario).
     assert cm.shape == (2, 2)
 
+# Test para verificar que guardar y cargar el modelo funciona correctamente.
 def test_save_and_load_model(tmp_path):
-    # Creamos datos simples para entrenar el modelo.
     X_train = pd.DataFrame({
         'feature1': [0.1, 0.2, 0.3, 0.4],
         'feature2': [1, 2, 3, 4]
     })
     y_train = [0, 1, 0, 1]
     
+    # Inicializamos ModelManager y entrenamos el modelo.
     mm = ModelManager(model_params={'max_iter': 200})
     mm.train_model(X_train, y_train)
     
-    # Usamos tmp_path para crear una carpeta temporal y redirigir la salida.
+    # Creamos un directorio temporal para guardar el modelo.
     models_dir = tmp_path / "models"
     models_dir.mkdir()
     model_filename = "test_model.pkl"
-    filepath = str(models_dir / model_filename)
     
-    # Cambiamos el directorio de guardado temporalmente modificando la función save_model
-    # (en este ejemplo, guardamos el modelo en la carpeta temporal en lugar de la carpeta 'models' real).
-    import joblib
-    joblib.dump(mm.model, filepath)
-    assert os.path.exists(filepath)
+    # Guardamos el modelo. El método save_model crea la carpeta "models" en la raíz, pero para la prueba se verifica que el archivo guardado existe.
+    saved_path = mm.save_model(model_filename)
+    assert os.path.exists(saved_path), "El archivo del modelo guardado no existe."
     
-    # Para probar la carga, cargamos directamente desde el archivo temporal.
-    loaded_model = joblib.load(filepath)
-    assert isinstance(loaded_model, LogisticRegression)
+    # Cargamos el modelo y verificamos que es una instancia de LogisticRegression.
+    loaded_model = mm.load_model(model_filename)
+    assert isinstance(loaded_model, LogisticRegression), "El modelo cargado no es de tipo LogisticRegression."
+
+# Test para verificar que intentar guardar un modelo sin entrenarlo lanza un ValueError.
+def test_save_model_without_training(tmp_path):
+    # Inicializamos ModelManager sin entrenar el modelo.
+    mm = ModelManager()
+    # Se espera que, al intentar guardar el modelo sin entrenarlo, se lance un ValueError.
+    with pytest.raises(ValueError):
+        mm.save_model("untrained_model.pkl")
