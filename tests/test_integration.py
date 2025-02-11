@@ -14,33 +14,35 @@ from aiLibrary.predictionEngine import PredictionEngine
 # Test para verificar que tras entrenar el modelo se creen atributos necesarios
 def test_train_model_attributes():
     data = pd.DataFrame({
-        'age': [50, 60, 70, 80],
-        'sex': [1, 1, 0, 0],
-        'cp': [0, 1, 0, 1],
-        'trestbps': [120, 140, 150, 160],
-        'chol': [200, 220, 240, 260],
-        'fbs': [0, 1, 0, 1],
-        'restecg': [0, 1, 0, 1],
-        'thalach': [150, 160, 170, 180],
-        'exang': [0, 1, 0, 1],
-        'oldpeak': [1, 2, 3, 4],
-        'slope': [1, 2, 1, 2],
-        'ca': [0, 1, 0, 1],
-        'thal': [1, 2, 1, 2],
-        'target': [0, 1, 0, 1]
+        'age': [50, 60, 70, 80, 55, 65, 75, 85],
+        'sex': [1, 1, 0, 0, 1, 0, 1, 0],
+        'cp': [0, 1, 0, 1, 0, 1, 0, 1],
+        'trestbps': [120, 140, 150, 160, 130, 150, 170, 180],
+        'chol': [200, 220, 240, 260, 210, 230, 250, 270],
+        'fbs': [0, 1, 0, 1, 0, 1, 0, 1],
+        'restecg': [0, 1, 0, 1, 0, 1, 0, 1],
+        'thalach': [150, 160, 170, 180, 155, 165, 175, 185],
+        'exang': [0, 1, 0, 1, 0, 1, 0, 1],
+        'oldpeak': [1, 2, 3, 4, 1.5, 2.5, 3.5, 4.5],
+        'slope': [1, 2, 1, 2, 1, 2, 1, 2],
+        'ca': [0, 1, 0, 1, 0, 1, 0, 1],
+        'thal': [1, 2, 1, 2, 1, 2, 1, 2],
+        'target': [0, 1, 0, 1, 0, 1, 0, 1]
     })
     dp = DataProcessor(scaling_method='minmax')
     data_clean = dp.clean_data(data)
     data_transformed = dp.transform_categorical(data_clean)
     data_scaled = dp.scale_data(data_transformed, target_column='target')
-    X_train, X_test, y_train, y_test = dp.split_data(data_scaled, target='target', test_size=0.5, random_state=42)
     
-    mm = ModelManager(model_params={'max_iter': 100})
-    mm.train_model(X_train, y_train)
+    X = data_scaled.drop(columns=['target'])
+    y = data_scaled['target']
     
     # Verifica que se haya creado el atributo "classes_" y que contenga ambas clases
+    mm = ModelManager(model_params={'max_iter': 100})
+    mm.train_model(X, y)
+
     assert hasattr(mm.model, 'classes_'), "El modelo no tiene el atributo 'classes_' después del entrenamiento."
-    assert set(mm.model.classes_) == {0, 1}, "El atributo 'classes_' no contiene las clases esperadas."
+    assert set(mm.model.classes_) == {0, 1}, "El atributo 'classes_' no contiene ambas clases esperadas."
 
 # Test para verificar la exactitud del modelo en un dataset sencillo y separable
 def test_model_accuracy_on_balanced_data():
