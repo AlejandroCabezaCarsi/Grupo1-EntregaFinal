@@ -21,21 +21,18 @@ class PredictionEngine:
         :param data: DataFrame con nuevos datos.
         :return: Numpy array con las predicciones.
         """
-        # Eliminar filas con datos faltantes
         data = data.dropna()
 
-        # Transformar variables categóricas mediante One-Hot Encoding
         categorical_cols = ['cp', 'restecg', 'ca', 'thal']
         for col in categorical_cols:
             if col in data.columns:
                 data = pd.get_dummies(data, columns=[col], prefix=col)
 
-        # Si existe la columna objetivo, eliminarla
         if self.target_column and self.target_column in data.columns:
             data = data.drop(columns=[self.target_column])
 
-        # Escalar columnas numéricas usando el escalador ajustado
         numeric_cols = data.select_dtypes(include=['int64', 'float64']).columns
+
         if self.scaler is not None:
             data[numeric_cols] = self.scaler.transform(data[numeric_cols])
 
