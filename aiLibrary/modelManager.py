@@ -41,10 +41,14 @@ class ModelManager:
     def save_model(self, model_name: str) -> str:
         """
         Guarda el modelo entrenado en la carpeta 'models'.
-        
+    
         :param model_name: Nombre del archivo donde se guardará el modelo (por ejemplo, 'model.pkl').
         :return: Ruta del archivo donde se guardó el modelo.
         """
+        # Verificar si el modelo ha sido entrenado (se asume que al entrenarlo se crea el atributo "classes_")
+        if not hasattr(self.model, "classes_"):
+            raise ValueError("El modelo no ha sido entrenado, no se puede guardar.")
+    
         directory = 'models'
         if not os.path.exists(directory):
             os.makedirs(directory)
