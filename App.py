@@ -56,7 +56,7 @@ def main():
     pe = PredictionEngine(model=loaded_model, scaler=dp.scaler, target_column=target_column)
     predictions = pe.evaluate_new_dataframe(data)
     print("Predicciones sobre el dataset:")
-    print(predictions)
+    print([int(x) for x in predictions])
 
 if __name__ == "__main__":
     main()
